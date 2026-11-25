@@ -131,6 +131,17 @@
 
             <span style="color: var(--border-hairline);">|</span>
 
+            <label class="flex items-center gap-1.5">
+              <span style="color: var(--text-muted);">Yıl:</span>
+              <select id="yearFilterSelect" onchange="window.App.applyFilters()" class="bg-transparent font-medium focus:outline-none cursor-pointer" style="color: var(--text-primary);">
+                <option value="0">Tüm Yıllar</option>
+                <option value="5">Son 5 Yıl</option>
+                <option value="10">Son 10 Yıl</option>
+              </select>
+            </label>
+
+            <span style="color: var(--border-hairline);">|</span>
+
             <label class="inline-flex items-center gap-1.5 cursor-pointer">
               <input id="oaOnlyCheck" type="checkbox" onchange="window.App.applyFilters()" class="rounded" />
               <span>Sadece Açık PDF</span>
@@ -138,7 +149,7 @@
           </div>
 
           <div class="flex items-center gap-3">
-            <button type="button" onclick="window.App.quickAskAssistantOnResults()" class="underline underline-offset-4 hover:opacity-75 font-medium" style="color: var(--text-primary);">
+            <button id="summarizeResultsBtn" type="button" onclick="window.App.quickAskAssistantOnResults()" class="underline underline-offset-4 hover:opacity-75 font-medium" style="color: var(--text-primary);">
               Bu Sonuçları Asistana Özetlet →
             </button>
           </div>
@@ -165,12 +176,13 @@
       <div class="flex flex-wrap items-center justify-between gap-4 hairline-b pb-4">
         <div class="flex flex-wrap items-center gap-3 text-xs">
           <select id="templateSelect" onchange="window.App.loadTemplate(this.value)" class="btn-ghost px-3 py-1.5 rounded-lg text-xs">
+            <option value="">Şablon Yükle (İsteğe Bağlı)...</option>
             <option value="research_tr">Şablon: Özgün Araştırma Makalesi (TR)</option>
             <option value="thesis_yok">Şablon: YÖK Tez Bölümü (TR)</option>
             <option value="research_en">Template: Q1 Journal Research Paper (EN)</option>
           </select>
 
-          <select id="styleSelect" onchange="window.App.updateBibliography()" class="btn-ghost px-3 py-1.5 rounded-lg text-xs font-mono-tabular">
+          <select id="styleSelect" onchange="window.App.onStyleChange()" class="btn-ghost px-3 py-1.5 rounded-lg text-xs font-mono-tabular">
             <option value="APA7">Stil: APA 7th Edition</option>
             <option value="IEEE">Stil: IEEE [1]</option>
             <option value="MLA9">Stil: MLA 9</option>
@@ -178,7 +190,7 @@
           </select>
 
           <select id="reviewStandardSelect" class="btn-ghost px-3 py-1.5 rounded-lg text-xs">
-            <option value="TR_YOK">Denetim: Türkiye (YÖK / TR Dizin)</option>
+            <option value="TR_YOK">Denetim: Türkiye (YÖK / TR Dizin — Türkçe)</option>
             <option value="EN_Q1">Denetim: International Q1 (English)</option>
           </select>
         </div>
@@ -186,6 +198,9 @@
         <div class="flex flex-wrap items-center gap-2">
           <button onclick="window.App.auditEditorWithAI()" class="btn-ink px-4 py-1.5 rounded-full text-xs font-medium">
             Profesör Denetimi Başlat
+          </button>
+          <button onclick="window.App.clearEditor()" class="btn-ghost px-3.5 py-1.5 rounded-full text-xs font-medium">
+            Temizle
           </button>
           <button onclick="window.App.appendBibliographyToText()" class="btn-ghost px-3.5 py-1.5 rounded-full text-xs font-medium">
             + Kaynakçayı Metne Ekle
@@ -206,7 +221,8 @@
               <input
                 id="docTitleInput"
                 type="text"
-                value="Akademik Araştırma Taslağı"
+                value=""
+                oninput="window.App.onEditorChange()"
                 class="font-serif-editorial text-2xl sm:text-3xl bg-transparent w-full focus:outline-none"
                 placeholder="Makale veya Tez Başlığı..."
               />
@@ -226,10 +242,10 @@
           <!-- AI Professor Audit Result Card (Appears when audited) -->
           <div id="editorAuditCard" class="hidden editorial-surface rounded-2xl p-6 space-y-4"></div>
 
-          <!-- Auto-Generated APA 7 Bibliography Section -->
+          <!-- Auto-Generated Bibliography Section -->
           <div class="editorial-surface rounded-2xl p-6 space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-mono-tabular uppercase tracking-wider" style="color: var(--text-muted);">Otomatik Kaynakça (APA 7)</span>
+              <span id="bibliographyHeading" class="text-xs font-mono-tabular uppercase tracking-wider" style="color: var(--text-muted);">Otomatik Kaynakça (APA 7)</span>
               <button onclick="window.App.copyBibliography()" class="text-xs underline underline-offset-4">Tümünü Kopyala</button>
             </div>
             <div id="bibliographyList" class="text-xs sm:text-sm font-academic-body space-y-2"></div>
@@ -260,7 +276,10 @@
               <h3 class="text-xs font-mono-tabular uppercase tracking-wider" style="color: var(--text-muted);">
                 Seçili Makalelerim
               </h3>
-              <button onclick="window.App.switchView('search')" class="text-xs underline underline-offset-4">+ Makale Seç</button>
+              <div class="flex items-center gap-3">
+                <button id="clearSelectedBtn" onclick="window.App.clearSelectedPapers()" class="hidden text-xs opacity-60 hover:opacity-100 underline underline-offset-4">Temizle</button>
+                <button onclick="window.App.switchView('search')" class="text-xs underline underline-offset-4">+ Makale Seç</button>
+              </div>
             </div>
             <div id="selectedPapersSideList" class="space-y-2.5"></div>
           </div>
@@ -338,13 +357,16 @@
         <div class="font-serif-editorial text-xl">Akademik Asistan & Hakem</div>
         <div id="assistantModeLabel" class="text-[11px] font-mono-tabular" style="color: var(--text-muted);">Harvard & YÖK Akademik Danışmanı · Ücretsiz LLM</div>
       </div>
-      <button onclick="window.App.toggleChatDrawer()" class="btn-ghost px-3 py-1 rounded-full text-xs">Kapat ✕</button>
+      <div class="flex items-center gap-1.5">
+        <button onclick="window.App.clearChat()" class="btn-ghost px-2.5 py-1 rounded-full text-xs" title="Sohbet geçmişini temizle">Temizle</button>
+        <button onclick="window.App.toggleChatDrawer()" class="btn-ghost px-3 py-1 rounded-full text-xs">Kapat ✕</button>
+      </div>
     </div>
 
     <!-- Minimal Quick Prompts -->
     <div class="px-5 py-2.5 hairline-b flex flex-wrap gap-1.5 text-[11px]" style="background: var(--bg-subtle);">
-      <button onclick="window.App.askAssistantPreset('summarize_current')" class="btn-ghost px-2.5 py-1 rounded-full">
-        Listelenen Makaleleri Özetle & APA Yaz
+      <button id="chatSummarizePresetBtn" onclick="window.App.askAssistantPreset('summarize_current')" class="btn-ghost px-2.5 py-1 rounded-full">
+        Seçili / Listelenenleri Özetle & APA Yaz
       </button>
       <button onclick="window.App.askAssistantPreset('audit_tr')" class="btn-ghost px-2.5 py-1 rounded-full">
         Yazımı Denetle (YÖK / TR)

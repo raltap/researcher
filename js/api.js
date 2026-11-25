@@ -630,23 +630,58 @@ window.ScholarAPI = (() => {
       .join(' ');
   }
 
+  // Parse author string safely across "First Last", "Last, First", and Europe PMC "Last AB" formats
+  function parseAuthorName(rawName) {
+    const raw = (rawName || '').trim();
+    if (!raw) return { first: '', last: 'Author' };
+
+    if (raw.includes(',')) {
+      const [lastPart, ...rest] = raw.split(',');
+      return {
+        last: normalizeAuthorCase(lastPart.trim()) || 'Author',
+        first: normalizeAuthorCase(rest.join(' ').trim())
+      };
+    }
+
+    const rawParts = raw.split(/\s+/).filter(Boolean);
+    if (rawParts.length === 1) {
+      return { first: '', last: normalizeAuthorCase(rawParts[0]) };
+    }
+
+    // Europe PMC format: "Smith J" or "Schermer MHN" (trailing 1-3 uppercase initials)
+    const lastToken = rawParts[rawParts.length - 1];
+    if (/^[A-Z]{1,3}\.?$/.test(lastToken) && rawParts[0].length > 1) {
+      const initials = lastToken.replace(/\./g, '').split('').join(' ');
+      return {
+        last: normalizeAuthorCase(rawParts.slice(0, -1).join(' ')),
+        first: initials
+      };
+    }
+
+    return {
+      first: normalizeAuthorCase(rawParts.slice(0, -1).join(' ')),
+      last: normalizeAuthorCase(lastToken)
+    };
+  }
+
   function toApaAuthor(fullName) {
-    const clean = normalizeAuthorCase(fullName);
-    const parts = clean.split(/\s+/);
-    if (parts.length === 1) return parts[0];
-    const last = parts[parts.length - 1];
-    const initials = parts
-      .slice(0, -1)
+    const { first, last } = parseAuthorName(fullName);
+    if (!first) return last;
+    const initials = first
+      .split(/\s+/)
+      .filter(Boolean)
       .map((p) => (p[0] ? `${p[0].toLocaleUpperCase('tr-TR')}.` : ''))
       .join(' ');
     return `${last}, ${initials}`;
   }
 
+  function toFullName(fullName) {
+    const { first, last } = parseAuthorName(fullName);
+    return first ? `${first} ${last}` : last;
+  }
+
   function getLastName(fullName) {
-    const clean = normalizeAuthorCase(fullName);
-    if (clean.includes(',')) return clean.split(',')[0].trim();
-    const parts = clean.split(/\s+/);
-    return parts[parts.length - 1];
+    return parseAuthorName(fullName).last;
   }
 
   function formatInTextCitation(paper, style = 'APA7', index = 1) {
@@ -659,15 +694,19 @@ window.ScholarAPI = (() => {
       if (authors.length === 2) return `(${firstLast} and ${getLastName(authors[1])})`;
       return `(${firstLast} et al.)`;
     }
+    if (style === 'Chicago') {
+      if (authors.length === 1) return `(${firstLast} ${year})`;
+      if (authors.length === 2) return `(${firstLast} and ${getLastName(authors[1])} ${year})`;
+      return `(${firstLast} et al. ${year})`;
+    }
     if (authors.length === 1) return `(${firstLast}, ${year})`;
     if (authors.length === 2) return `(${firstLast} & ${getLastName(authors[1])}, ${year})`;
     return `(${firstLast} et al., ${year})`;
   }
 
   function formatCitation(paper, style = 'APA7', index = 1) {
-    const authors = (paper.authors && paper.authors.length ? paper.authors : ['Author']).map(
-      normalizeAuthorCase
-    );
+    const rawAuthors = paper.authors && paper.authors.length ? paper.authors : ['Author'];
+    const authors = rawAuthors.map(toFullName);
     const year = paper.year || 'n.d.';
     const title = paper.title || 'Untitled article';
     const venue = paper.venue || 'Academic Journal';
@@ -679,7 +718,7 @@ window.ScholarAPI = (() => {
       : paper.url || '';
 
     if (style === 'BibTeX') {
-      const key = `${getLastName(authors[0])
+      const key = `${getLastName(rawAuthors[0])
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '')}${year}`;
       return [
@@ -688,6 +727,9 @@ window.ScholarAPI = (() => {
         `  title = {${title}},`,
         `  journal = {${venue}},`,
         `  year = {${year}},`,
+        volume ? `  volume = {${volume}},` : null,
+        issue ? `  number = {${issue}},` : null,
+        pages ? `  pages = {${pages}},` : null,
         paper.doi ? `  doi = {${paper.doi}}` : null,
         `}`
       ]
@@ -696,11 +738,59 @@ window.ScholarAPI = (() => {
     }
 
     if (style === 'IEEE') {
-      const ieeeAuthors = authors.slice(0, 6).join(', ');
-      return `[${index}] ${ieeeAuthors}, "${title}," ${venue}, ${year}.${doiUrl ? ' ' + doiUrl : ''}`;
+      const ieeeAuthors = rawAuthors
+        .slice(0, 6)
+        .map((a) => {
+          const { first, last } = parseAuthorName(a);
+          const init = first
+            ? first
+                .split(/\s+/)
+                .filter(Boolean)
+                .map((p) => `${p[0].toLocaleUpperCase('tr-TR')}.`)
+                .join(' ') + ' '
+            : '';
+          return `${init}${last}`;
+        })
+        .join(', ');
+      const volStr = volume ? `, vol. ${volume}` : '';
+      const issStr = issue ? `, no. ${issue}` : '';
+      const pgStr = pages ? `, pp. ${pages}` : '';
+      return `[${index}] ${ieeeAuthors}, "${title}," ${venue}${volStr}${issStr}${pgStr}, ${year}.${doiUrl ? ' ' + doiUrl : ''}`;
     }
 
-    const apaAuthorsList = authors.slice(0, 10).map(toApaAuthor);
+    if (style === 'MLA9') {
+      const firstParsed = parseAuthorName(rawAuthors[0]);
+      const firstMla = firstParsed.first ? `${firstParsed.last}, ${firstParsed.first}` : firstParsed.last;
+      let mlaAuthors = firstMla;
+      if (rawAuthors.length === 2) {
+        mlaAuthors = `${firstMla}, and ${toFullName(rawAuthors[1])}`;
+      } else if (rawAuthors.length > 2) {
+        mlaAuthors = `${firstMla}, et al.`;
+      }
+      const volStr = volume ? `, vol. ${volume}` : '';
+      const issStr = issue ? `, no. ${issue}` : '';
+      const pgStr = pages ? `, pp. ${pages}` : '';
+      return `${mlaAuthors}. "${title}." ${venue}${volStr}${issStr}, ${year}${pgStr}.${doiUrl ? ' ' + doiUrl + '.' : ''}`;
+    }
+
+    if (style === 'Chicago') {
+      const firstParsed = parseAuthorName(rawAuthors[0]);
+      const firstChi = firstParsed.first ? `${firstParsed.last}, ${firstParsed.first}` : firstParsed.last;
+      let chiAuthors = firstChi;
+      if (rawAuthors.length === 2) {
+        chiAuthors = `${firstChi}, and ${toFullName(rawAuthors[1])}`;
+      } else if (rawAuthors.length > 2) {
+        const middle = rawAuthors.slice(1, -1).map(toFullName);
+        const lastAuth = toFullName(rawAuthors[rawAuthors.length - 1]);
+        chiAuthors = `${firstChi}${middle.length ? ', ' + middle.join(', ') : ''}, and ${lastAuth}`;
+      }
+      const volStr = volume ? ` ${volume}` : '';
+      const issStr = issue ? ` (${issue})` : '';
+      const pgStr = pages ? `: ${pages}` : '';
+      return `${chiAuthors}. ${year}. "${title}." ${venue}${volStr}${issStr}${pgStr}.${doiUrl ? ' ' + doiUrl + '.' : ''}`;
+    }
+
+    const apaAuthorsList = rawAuthors.slice(0, 10).map(toApaAuthor);
     let authorStr = '';
     if (apaAuthorsList.length === 1) authorStr = apaAuthorsList[0];
     else if (apaAuthorsList.length === 2) authorStr = `${apaAuthorsList[0]}, & ${apaAuthorsList[1]}`;

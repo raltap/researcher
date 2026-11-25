@@ -76,12 +76,20 @@ function fetchUrl(url, options = {}) {
   });
 }
 
-// Translate Turkish core subject to exact English academic terms using Google GTX free endpoint
+// Translate non-English core subject to exact English academic terms using Google GTX free endpoint
 async function translateToEnglish(text) {
   if (!text || !text.trim()) return '';
+  const trimmed = text.trim();
+  // Skip translation if already pure ASCII without common Turkish words
+  const hasTurkishChars = /[çğıöşüÇĞİÖŞÜ]/.test(trimmed);
+  const hasCommonTurkishWords = /\b(ve|ile|icin|uzerine|hakkinda|egitim|yapay|zeka|makale|arastirma|bilim|toplum|insan|makine|saglik|ekonomi|tarih|hukuk|psikoloji)\b/i.test(trimmed);
+  if (!hasTurkishChars && !hasCommonTurkishWords && /^[\x20-\x7E]+$/.test(trimmed)) {
+    return trimmed;
+  }
   try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=tr&tl=en&dt=t&q=${encodeURIComponent(
-      text.trim()
+    const sl = hasTurkishChars || hasCommonTurkishWords ? 'tr' : 'auto';
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=en&dt=t&q=${encodeURIComponent(
+      trimmed
     )}`;
     const res = await fetchUrl(url, { timeout: 6000 });
     if (res.status === 200) {
@@ -96,10 +104,10 @@ async function translateToEnglish(text) {
   } catch (e) {
     console.warn('Translation fallback:', e.message);
   }
-  return text.trim();
+  return trimmed;
 }
 
-// Call real LLM from backend (1. Google Gemini if key provided, 2. Pollinations OpenAI GPT-4o-mini/Mistral server-side)
+// Call real LLM from backend (1. Google Gemini if key provided, 2. Pollinations OpenAI-compatible server-side)
 async function callServerLLM({ messages, system, apiKey, model }) {
   // 1. If user provided a Google Gemini API key
   if (apiKey && apiKey.trim().length > 10) {
@@ -118,20 +126,30 @@ async function callServerLLM({ messages, system, apiKey, model }) {
       body: {
         system_instruction: system ? { parts: [{ text: system }] } : undefined,
         contents,
-        generationConfig: { temperature: 0.35, maxOutputTokens: 2500 }
-      }
+        generationConfig: { temperature: 0.35, maxOutputTokens: 3200 }
+      },
+      timeout: 30000
     });
 
     if (res.status === 200) {
       const data = JSON.parse(res.text);
       const reply = data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('\n');
       if (reply) {
-        return { text: reply, provider: `Google Gemini (${geminiModel})` };
+        return { text: reply.trim(), provider: `Google Gemini (${geminiModel})` };
       }
+    } else {
+      let errDetail = `HTTP ${res.status}`;
+      try {
+        const errJson = JSON.parse(res.text);
+        errDetail = errJson?.error?.message || errDetail;
+      } catch (e) {
+        // ignore parse error
+      }
+      console.warn(`Gemini API error (${errDetail}), falling back to Free LLM.`);
     }
   }
 
-  // 2. Free Server-Side Real LLM (Pollinations OpenAI endpoint - no CORS, real generative AI)
+  // 2. Free Server-Side Real LLM (Pollinations OpenAI endpoint with model fallback)
   const fullMessages = [];
   if (system) {
     fullMessages.push({ role: 'system', content: system });
@@ -140,35 +158,41 @@ async function callServerLLM({ messages, system, apiKey, model }) {
     fullMessages.push({ role: m.role || 'user', content: m.content });
   }
 
-  try {
-    const res = await fetchUrl('https://text.pollinations.ai/openai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: {
-        model: 'openai',
-        messages: fullMessages,
-        temperature: 0.35
-      },
-      timeout: 22000
-    });
+  for (const freeModel of ['openai', 'openai-fast', 'mistral']) {
+    try {
+      const res = await fetchUrl('https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: {
+          model: freeModel,
+          messages: fullMessages,
+          temperature: 0.35
+        },
+        timeout: 30000
+      });
 
-    if (res.status === 200) {
-      const data = JSON.parse(res.text);
-      const content = data.choices?.[0]?.message?.content;
-      if (content && content.trim().length > 10) {
-        return { text: content.trim(), provider: 'ScholarFlow Free LLM (OpenAI / Llama-3.3)' };
+      if (res.status === 200 && res.text) {
+        try {
+          const data = JSON.parse(res.text);
+          const content = data.choices?.[0]?.message?.content;
+          if (content && content.trim().length > 10) {
+            return { text: content.trim(), provider: `ScholarFlow Free LLM (${freeModel})` };
+          }
+        } catch (parseErr) {
+          console.warn(`Free LLM (${freeModel}) non-JSON response:`, parseErr.message);
+        }
       }
+    } catch (e) {
+      console.warn(`Free LLM (${freeModel}) attempt warning:`, e.message);
     }
-  } catch (e) {
-    console.warn('Primary free LLM attempt warning:', e.message);
   }
 
   // 3. Secondary Free Server-Side Real LLM endpoint (Direct prompt endpoint)
   const lastUserMsg = (messages || [])[messages.length - 1]?.content || '';
   const combinedPrompt = `${system ? system + '\n\n' : ''}${lastUserMsg}`;
   const fallbackRes = await fetchUrl(
-    `https://text.pollinations.ai/${encodeURIComponent(combinedPrompt.slice(0, 3500))}?model=openai`,
-    { method: 'GET', timeout: 20000 }
+    `https://text.pollinations.ai/${encodeURIComponent(combinedPrompt.slice(0, 4500))}?model=openai`,
+    { method: 'GET', timeout: 25000 }
   );
   if (fallbackRes.status === 200 && fallbackRes.text && fallbackRes.text.trim().length > 10) {
     return {

@@ -238,3 +238,9 @@ html, body {
   background: var(--border-hairline);
   border-radius: 9999px;
 }
+
+/* Dark-mode safe select dropdown options on Windows/Chromium */
+select option {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
