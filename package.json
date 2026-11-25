@@ -1,0 +1,21 @@
+{
+  "name": "researcher",
+  "version": "1.0.0",
+  "description": "ScholarFlow AI - Açık Kaynak Scite.ai Tarzı Akademik Makale Tarama, Akıllı Atıf Analizi, Bağlam-Duyarlı Yazım Stüdyosu ve Harvard Profesörü AI Akademik Denetim Platformu",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "academic-research",
+    "scite",
+    "literature-review",
+    "apa7",
+    "citation-analysis",
+    "ai-peer-review",
+    "openalex",
+    "semantic-scholar"
+  ],
+  "license": "MIT"
+}

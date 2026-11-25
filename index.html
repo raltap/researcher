@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ScholarFlow — Akademik Literatür, Atıf Analizi & Yazım Stüdyosu</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- ===================================================================== -->
+  <!-- MINIMAL AWWWARDS EDITORIAL HEADER                                     -->
+  <!-- ===================================================================== -->
+  <header class="editorial-header sticky top-0 z-30 px-6 py-3.5">
+    <div class="max-w-[1160px] mx-auto flex items-center justify-between gap-4">
+      <!-- Brand -->
+      <a href="#" onclick="window.App.switchView('search'); return false;" class="flex items-baseline gap-2 group">
+        <span class="font-serif-editorial text-2xl sm:text-3xl tracking-tight">ScholarFlow</span>
+        <span class="text-[10px] font-mono-tabular uppercase tracking-widest opacity-55">Index & Studio</span>
+      </a>
+
+      <!-- Minimal 3-Tab Navigation -->
+      <nav class="flex items-center gap-1 p-1 rounded-full hairline-border" style="background: var(--bg-subtle);">
+        <button id="navBtn-search" onclick="window.App.switchView('search')" class="nav-link active">
+          Araştırma
+        </button>
+        <button id="navBtn-studio" onclick="window.App.switchView('studio')" class="nav-link flex items-center gap-1.5">
+          <span>Yazım Stüdyosu</span>
+          <span id="navSelectedBadge" class="font-mono-tabular text-[11px] opacity-75">(0)</span>
+        </button>
+        <button id="navBtn-about" onclick="window.App.switchView('about')" class="nav-link">
+          Hakkında & Rehber
+        </button>
+      </nav>
+
+      <!-- Right Minimal Controls: Info, Theme Toggle, AI Professor Drawer -->
+      <div class="flex items-center gap-2">
+        <!-- Quick Info Popover Icon -->
+        <div class="info-popover-trigger">
+          <button onclick="window.App.switchView('about')" class="btn-ghost w-8 h-8 rounded-full flex items-center justify-center text-xs font-serif-editorial italic" title="Nasıl Kullanılır?">
+            i
+          </button>
+          <div class="info-popover-box">
+            <div class="font-semibold mb-1" style="color: var(--text-primary);">Hızlı İpucu</div>
+            Makaleleri tarayın, <strong>+ Seç</strong> ile çalışma sepetinize ekleyin. <strong>Yazım Stüdyosu</strong>'nda tez/makale yazarken seçtiğiniz makalelerdeki alakalı kısımlar otomatik belirir ve APA 7 kaynakçanız oluşur. Detaylar için tıklayın.
+          </div>
+        </div>
+
+        <!-- Day / Night Theme Toggle -->
+        <button id="themeToggleBtn" onclick="window.App.toggleTheme()" class="btn-ghost px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5" title="Gece / Gündüz Modu">
+          <span id="themeToggleIcon">🌙</span>
+          <span id="themeToggleText" class="hidden sm:inline">Gece</span>
+        </button>
+
+        <!-- Toggle Professor Chat Drawer -->
+        <button onclick="window.App.toggleChatDrawer()" class="btn-ink px-3.5 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5">
+          <span>Akademik Asistan</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- MAIN EDITORIAL WORKSPACE                                              -->
+  <!-- ===================================================================== -->
+  <main class="flex-1 max-w-[1160px] w-full mx-auto px-6 py-10">
+
+    <!-- =================================================================== -->
+    <!-- VIEW 1: ARAŞTIRMA (MINIMAL EDITORIAL SEARCH & SCITE RANKING)        -->
+    <!-- =================================================================== -->
+    <section id="view-search" class="space-y-10">
+
+      <!-- Editorial Hero Title & Search Bar -->
+      <div class="max-w-3xl space-y-5">
+        <div class="flex items-center gap-2 text-xs font-mono-tabular uppercase tracking-widest" style="color: var(--text-muted);">
+          <span>250M+ Akademik Makale</span>
+          <span>·</span>
+          <span>Atıf Gücü Sıralaması</span>
+          <span>·</span>
+          <span>APA 7 Sentez</span>
+        </div>
+
+        <h1 class="font-serif-editorial text-4xl sm:text-5xl font-normal tracking-tight leading-[1.12]">
+          Bilimsel literatürü gürültüden arındırarak keşfedin.
+        </h1>
+
+        <!-- Search Form -->
+        <form onsubmit="window.App.handleSearchSubmit(event)" class="pt-1">
+          <div class="editorial-surface rounded-2xl p-1.5 flex items-center gap-2">
+            <input
+              id="searchInput"
+              type="text"
+              placeholder="Araştırma konusu, kavram veya makale başlığı (Örn: Su samurları, Artificial Intelligence in Education...)"
+              class="w-full px-4 py-3 bg-transparent text-sm sm:text-base focus:outline-none"
+              style="color: var(--text-primary);"
+            />
+            <button type="submit" id="searchBtn" class="btn-ink px-6 py-3 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap">
+              Araştır
+            </button>
+          </div>
+        </form>
+
+        <!-- Minimal Filter & Sort Strip -->
+        <div class="flex flex-wrap items-center justify-between gap-4 pt-1 text-xs" style="color: var(--text-secondary);">
+          <div class="flex flex-wrap items-center gap-3">
+            <label class="flex items-center gap-1.5">
+              <span style="color: var(--text-muted);">Sıralama:</span>
+              <select id="sortSelect" onchange="window.App.applyFilters()" class="bg-transparent font-medium focus:outline-none cursor-pointer" style="color: var(--text-primary);">
+                <option value="citations_desc">Atıf Sayısı (Güçlüden Zayıfa)</option>
+                <option value="influential_desc">Etkili Atıf Gücü (Scite)</option>
+                <option value="velocity_desc">Yıllık Atıf İvmesi</option>
+                <option value="relevance_desc">Konu Alaka Düzeyi</option>
+                <option value="year_desc">Yayın Yılı (En Yeni)</option>
+              </select>
+            </label>
+
+            <span style="color: var(--border-hairline);">|</span>
+
+            <label class="flex items-center gap-1.5">
+              <span style="color: var(--text-muted);">Filtre:</span>
+              <select id="relevanceSelect" onchange="window.App.applyFilters()" class="bg-transparent font-medium focus:outline-none cursor-pointer" style="color: var(--text-primary);">
+                <option value="40">Alakasızları Ayıkla (Scite)</option>
+                <option value="65">Sadece Yüksek Alaka (%65+)</option>
+              </select>
+            </label>
+
+            <span style="color: var(--border-hairline);">|</span>
+
+            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+              <input id="oaOnlyCheck" type="checkbox" onchange="window.App.applyFilters()" class="rounded" />
+              <span>Sadece Açık PDF</span>
+            </label>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button type="button" onclick="window.App.quickAskAssistantOnResults()" class="underline underline-offset-4 hover:opacity-75 font-medium" style="color: var(--text-primary);">
+              Bu Sonuçları Asistana Özetlet →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status Meta Line -->
+      <div class="flex items-center justify-between hairline-b pb-3 text-xs font-mono-tabular" style="color: var(--text-muted);">
+        <div id="searchMetaLine">Hazır</div>
+        <div>ATIF GÜCÜ & SEÇİM</div>
+      </div>
+
+      <!-- Clean Swiss Editorial Results List -->
+      <div id="resultsList" class="divide-y" style="border-color: var(--border-hairline);"></div>
+
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 2: YAZIM STÜDYOSU (CLEAN ACADEMIC EDITOR + LIVE APA 7)         -->
+    <!-- =================================================================== -->
+    <section id="view-studio" class="hidden space-y-8">
+
+      <!-- Minimal Studio Toolbar -->
+      <div class="flex flex-wrap items-center justify-between gap-4 hairline-b pb-4">
+        <div class="flex flex-wrap items-center gap-3 text-xs">
+          <select id="templateSelect" onchange="window.App.loadTemplate(this.value)" class="btn-ghost px-3 py-1.5 rounded-lg text-xs">
+            <option value="research_tr">Şablon: Özgün Araştırma Makalesi (TR)</option>
+            <option value="thesis_yok">Şablon: YÖK Tez Bölümü (TR)</option>
+            <option value="research_en">Template: Q1 Journal Research Paper (EN)</option>
+          </select>
+
+          <select id="styleSelect" onchange="window.App.updateBibliography()" class="btn-ghost px-3 py-1.5 rounded-lg text-xs font-mono-tabular">
+            <option value="APA7">Stil: APA 7th Edition</option>
+            <option value="IEEE">Stil: IEEE [1]</option>
+            <option value="MLA9">Stil: MLA 9</option>
+            <option value="Chicago">Stil: Chicago</option>
+          </select>
+
+          <select id="reviewStandardSelect" class="btn-ghost px-3 py-1.5 rounded-lg text-xs">
+            <option value="TR_YOK">Denetim: Türkiye (YÖK / TR Dizin)</option>
+            <option value="EN_Q1">Denetim: International Q1 (English)</option>
+          </select>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="window.App.auditEditorWithAI()" class="btn-ink px-4 py-1.5 rounded-full text-xs font-medium">
+            Profesör Denetimi Başlat
+          </button>
+          <button onclick="window.App.appendBibliographyToText()" class="btn-ghost px-3.5 py-1.5 rounded-full text-xs font-medium">
+            + Kaynakçayı Metne Ekle
+          </button>
+          <button onclick="window.App.exportDoc()" class="btn-ghost px-3.5 py-1.5 rounded-full text-xs font-medium">
+            İndir (.doc)
+          </button>
+        </div>
+      </div>
+
+      <!-- Asymmetric 2-Column Editorial Studio (Main Paper Sheet + Right Context Evidence) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+        <!-- Left 8 Cols: Clean Paper Canvas -->
+        <div class="lg:col-span-8 space-y-6">
+          <div class="writing-sheet rounded-2xl p-6 sm:p-10 space-y-4">
+            <div class="flex items-center justify-between hairline-b pb-3">
+              <input
+                id="docTitleInput"
+                type="text"
+                value="Akademik Araştırma Taslağı"
+                class="font-serif-editorial text-2xl sm:text-3xl bg-transparent w-full focus:outline-none"
+                placeholder="Makale veya Tez Başlığı..."
+              />
+              <span id="wordCountBadge" class="text-xs font-mono-tabular whitespace-nowrap ml-3" style="color: var(--text-muted);">0 kelime</span>
+            </div>
+
+            <textarea
+              id="editorTextarea"
+              oninput="window.App.onEditorChange()"
+              onclick="window.App.onEditorChange()"
+              onkeyup="window.App.onEditorChange()"
+              class="w-full min-h-[420px] bg-transparent font-academic-body focus:outline-none resize-y"
+              placeholder="Tezinizi veya makalenizi buraya yazın. Seçtiğiniz makalelerdeki alakalı bulgular sağ sütunda belirecektir..."
+            ></textarea>
+          </div>
+
+          <!-- AI Professor Audit Result Card (Appears when audited) -->
+          <div id="editorAuditCard" class="hidden editorial-surface rounded-2xl p-6 space-y-4"></div>
+
+          <!-- Auto-Generated APA 7 Bibliography Section -->
+          <div class="editorial-surface rounded-2xl p-6 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono-tabular uppercase tracking-wider" style="color: var(--text-muted);">Otomatik Kaynakça (APA 7)</span>
+              <button onclick="window.App.copyBibliography()" class="text-xs underline underline-offset-4">Tümünü Kopyala</button>
+            </div>
+            <div id="bibliographyList" class="text-xs sm:text-sm font-academic-body space-y-2"></div>
+          </div>
+        </div>
+
+        <!-- Right 4 Cols: Selected Papers & Live Evidence Passages -->
+        <div class="lg:col-span-4 space-y-6">
+          <!-- Live Matched Evidence from Selected Papers -->
+          <div class="editorial-surface rounded-2xl p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-mono-tabular uppercase tracking-wider" style="color: var(--text-muted);">
+                Yazınızla Eşleşen Kanıtlar
+              </h3>
+              <div class="info-popover-trigger">
+                <span class="text-xs font-serif-editorial italic cursor-pointer px-1.5 py-0.5 rounded-full hairline-border">i</span>
+                <div class="info-popover-box">
+                  Editörde yazdığınız aktif cümle, seçtiğiniz makalelerin bulgularıyla canlı eşleştirilir. Tek tıkla metin içi APA atıfı ekleyebilirsiniz.
+                </div>
+              </div>
+            </div>
+            <div id="livePassagesList" class="space-y-3"></div>
+          </div>
+
+          <!-- Selected Papers Basket -->
+          <div class="editorial-surface rounded-2xl p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-mono-tabular uppercase tracking-wider" style="color: var(--text-muted);">
+                Seçili Makalelerim
+              </h3>
+              <button onclick="window.App.switchView('search')" class="text-xs underline underline-offset-4">+ Makale Seç</button>
+            </div>
+            <div id="selectedPapersSideList" class="space-y-2.5"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 3: HAKKINDA & REHBER (DEDICATED CLEAN DOCUMENTATION PAGE)      -->
+    <!-- =================================================================== -->
+    <section id="view-about" class="hidden max-w-3xl mx-auto space-y-10 py-4">
+      <div class="space-y-3 hairline-b pb-6">
+        <div class="text-xs font-mono-tabular uppercase tracking-widest" style="color: var(--text-muted);">Dokümantasyon & Mimari</div>
+        <h1 class="font-serif-editorial text-4xl sm:text-5xl font-normal">ScholarFlow Nasıl Çalışır?</h1>
+        <p class="text-sm sm:text-base leading-relaxed" style="color: var(--text-secondary);">
+          ScholarFlow; akademik literatür taramasını, Scite.ai tarzı atıf gücü analizini, bağlam-duyarlı tez/makale yazımını ve Harvard Profesörü seviyesinde akademik hakem denetimini tek bir minimal arayüzde birleştiren açık erişimli bir araştırma platformudur.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="editorial-surface rounded-2xl p-6 space-y-2">
+          <div class="font-mono-tabular text-xs" style="color: var(--text-muted);">01 / AKILLI TARAMA & SCITE FİLTRESİ</div>
+          <h3 class="font-semibold text-base">Konu Çekirdeği & Atıf Gücü</h3>
+          <p class="text-xs sm:text-sm leading-relaxed" style="color: var(--text-secondary);">
+            Türkçe veya İngilizce yazdığınız sorgulardaki konuşma eklerini ayıklar, konuyu uluslararası akademik terimlere çevirerek <strong>OpenAlex (250M+), Europe PMC ve CrossRef</strong> üzerinde tarar. Konuyla alakasız makaleleri eler ve sonuçları <strong>en çok atıf alandan en zayıfa doğru</strong> sıralar.
+          </p>
+        </div>
+
+        <div class="editorial-surface rounded-2xl p-6 space-y-2">
+          <div class="font-mono-tabular text-xs" style="color: var(--text-muted);">02 / KENARDA AÇ & İNCELE</div>
+          <h3 class="font-semibold text-base">Yan Çekmece Makale Okuyucu</h3>
+          <p class="text-xs sm:text-sm leading-relaxed" style="color: var(--text-secondary);">
+            Herhangi bir makalenin başlığına veya <strong>İncele</strong> butonuna tıkladığınızda sayfa değişmeden sağ çekmecede makalenin özeti, metodolojisi, temel bulguları, açık erişim PDF bağlantısı ve hazır <strong>APA 7 / IEEE / BibTeX</strong> künyesi açılır.
+          </p>
+        </div>
+
+        <div class="editorial-surface rounded-2xl p-6 space-y-2">
+          <div class="font-mono-tabular text-xs" style="color: var(--text-muted);">03 / YAZIM STÜDYOSU & CANLI APA 7</div>
+          <h3 class="font-semibold text-base">Seçili Makalelerle Bağlam Eşleşmesi</h3>
+          <p class="text-xs sm:text-sm leading-relaxed" style="color: var(--text-secondary);">
+            Beğendiğiniz makaleleri <strong>+ Seç</strong> ile işaretleyip Yazım Stüdyosu'na geçtiğinizde; siz tez veya makalenizi yazarken seçili makalelerdeki en alakalı cümleler sağ panelde belirir. Tek tıkla <code>(Yazar, Yıl)</code> atıfı eklenir ve en altta APA 7 kaynakça oluşur.
+          </p>
+        </div>
+
+        <div class="editorial-surface rounded-2xl p-6 space-y-2">
+          <div class="font-mono-tabular text-xs" style="color: var(--text-muted);">04 / GİRİŞSİZ ÜCRETSİZ AI MİMARİSİ</div>
+          <h3 class="font-semibold text-base">Gerçek LLM & Harvard Hakem Denetimi</h3>
+          <p class="text-xs sm:text-sm leading-relaxed" style="color: var(--text-secondary);">
+            Giriş yapmadan kullanılan <strong>Ücretsiz Mod</strong>, arka uç sunucu vekili (<code>/api/ai</code>) üzerinden gerçek Büyük Dil Modeli (OpenAI / Llama-3.3 anonim akademik çıkarım katmanı) çalıştırır. İsteyen kullanıcılar sayfanın en altındaki ayarlardan kendi ücretsiz <strong>Google Gemini</strong> anahtarını da bağlayabilir.
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- SLIDE-OVER DRAWER 1: PAPER INSPECTOR ("KENARDA AÇ")                   -->
+  <!-- ===================================================================== -->
+  <aside id="paperDrawer" class="editorial-drawer closed fixed top-0 right-0 h-full w-full sm:w-[520px] z-40 flex flex-col">
+    <div class="px-6 py-4 hairline-b flex items-center justify-between">
+      <span class="text-xs font-mono-tabular uppercase tracking-wider" style="color: var(--text-muted);">Makale İnceleme</span>
+      <button onclick="window.App.closePaperDrawer()" class="btn-ghost px-3 py-1 rounded-full text-xs">Kapat ✕</button>
+    </div>
+    <div id="paperDrawerContent" class="flex-1 overflow-y-auto p-6 space-y-6 text-sm"></div>
+  </aside>
+
+  <!-- ===================================================================== -->
+  <!-- SLIDE-OVER DRAWER 2: HARVARD PROFESSOR AI ASSISTANT                   -->
+  <!-- ===================================================================== -->
+  <aside id="chatDrawer" class="editorial-drawer closed fixed top-0 right-0 h-full w-full sm:w-[460px] z-40 flex flex-col">
+    <div class="px-6 py-4 hairline-b flex items-center justify-between">
+      <div>
+        <div class="font-serif-editorial text-xl">Akademik Asistan & Hakem</div>
+        <div id="assistantModeLabel" class="text-[11px] font-mono-tabular" style="color: var(--text-muted);">Harvard & YÖK Akademik Danışmanı · Ücretsiz LLM</div>
+      </div>
+      <button onclick="window.App.toggleChatDrawer()" class="btn-ghost px-3 py-1 rounded-full text-xs">Kapat ✕</button>
+    </div>
+
+    <!-- Minimal Quick Prompts -->
+    <div class="px-5 py-2.5 hairline-b flex flex-wrap gap-1.5 text-[11px]" style="background: var(--bg-subtle);">
+      <button onclick="window.App.askAssistantPreset('summarize_current')" class="btn-ghost px-2.5 py-1 rounded-full">
+        Listelenen Makaleleri Özetle & APA Yaz
+      </button>
+      <button onclick="window.App.askAssistantPreset('audit_tr')" class="btn-ghost px-2.5 py-1 rounded-full">
+        Yazımı Denetle (YÖK / TR)
+      </button>
+      <button onclick="window.App.askAssistantPreset('audit_en')" class="btn-ghost px-2.5 py-1 rounded-full">
+        Peer-Review (Q1 English)
+      </button>
+    </div>
+
+    <!-- Messages Area -->
+    <div id="chatMessages" class="flex-1 overflow-y-auto p-5 space-y-4 text-xs sm:text-sm"></div>
+
+    <!-- Input Box -->
+    <form onsubmit="window.App.handleChatSubmit(event)" class="p-4 hairline-t space-y-2">
+      <textarea
+        id="chatInput"
+        rows="2"
+        placeholder="Bir konu sorup makaleleri özetletin veya yazdığınız metni yapıştırıp denetletin..."
+        class="w-full p-3 rounded-xl hairline-border bg-transparent text-xs sm:text-sm focus:outline-none resize-none"
+        onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); window.App.handleChatSubmit(event);}"
+      ></textarea>
+      <div class="flex items-center justify-between">
+        <span class="text-[11px]" style="color: var(--text-muted);">Enter ile gönder</span>
+        <button type="submit" id="chatSubmitBtn" class="btn-ink px-4 py-1.5 rounded-full text-xs font-medium">
+          Gönder →
+        </button>
+      </div>
+    </form>
+  </aside>
+
+  <!-- ===================================================================== -->
+  <!-- MINIMAL FOOTER (LOGIN / GOOGLE GEMINI & PDF UPLOAD AT THE BOTTOM)     -->
+  <!-- ===================================================================== -->
+  <footer class="hairline-t px-6 py-5 mt-16 text-xs" style="color: var(--text-muted);">
+    <div class="max-w-[1160px] mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="font-serif-editorial text-base" style="color: var(--text-primary);">ScholarFlow</span>
+        <span>·</span>
+        <span>Açık Akademik Literatür & Yazım Platformu</span>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-4">
+        <!-- Upload Local PDF in Footer -->
+        <label class="cursor-pointer hover:underline underline-offset-4" style="color: var(--text-secondary);">
+          <span>+ Bilgisayardan PDF Makale Yükle</span>
+          <input type="file" accept="application/pdf" class="hidden" onchange="window.App.handlePdfUpload(event)" />
+        </label>
+
+        <span>·</span>
+
+        <!-- AI Status & Optional Google Gemini Login/Connect at the bottom -->
+        <button onclick="window.App.openGeminiSettings()" class="inline-flex items-center gap-1.5 hover:underline underline-offset-4" style="color: var(--text-primary);">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span id="footerAiStatusText">AI: Girişsiz Ücretsiz LLM (Aktif) — Google Gemini Bağla</span>
+        </button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ===================================================================== -->
+  <!-- MINIMAL GOOGLE GEMINI MODAL (ONLY OPENED FROM FOOTER)                 -->
+  <!-- ===================================================================== -->
+  <div id="geminiModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+    <div class="editorial-surface rounded-2xl max-w-md w-full p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-serif-editorial text-2xl">AI Motoru & Google Gemini</h3>
+        <button onclick="window.App.closeGeminiSettings()" class="text-xs opacity-60 hover:opacity-100">✕</button>
+      </div>
+      <p class="text-xs leading-relaxed" style="color: var(--text-secondary);">
+        ScholarFlow varsayılan olarak <strong>giriş yapmadan ücretsiz sunucu LLM motoruyla</strong> çalışır. Kendi ücretsiz Google Gemini anahtarınızı bağlayarak doğrudan Gemini 2.5 Flash/Pro üzerinden de kullanabilirsiniz.
+      </p>
+      <div class="space-y-2 text-xs">
+        <div class="flex justify-between">
+          <label class="font-medium">Google Gemini API Anahtarı (İsteğe Bağlı)</label>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="underline">Anahtar Al ↗</a>
+        </div>
+        <input id="geminiKeyInput" type="password" placeholder="AIzaSy..." class="w-full px-3 py-2 rounded-lg hairline-border bg-transparent text-xs focus:outline-none" />
+        <select id="geminiModelInput" class="w-full px-3 py-2 rounded-lg hairline-border bg-transparent text-xs focus:outline-none">
+          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+        </select>
+      </div>
+      <div class="flex items-center justify-between pt-2">
+        <button onclick="window.App.clearGeminiSettings()" class="btn-ghost px-3 py-2 rounded-lg text-xs">
+          Ücretsiz Moda Dön
+        </button>
+        <button onclick="window.App.saveGeminiSettings()" class="btn-ink px-4 py-2 rounded-lg text-xs font-medium">
+          Kaydet
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Minimal Toast -->
+  <div id="toastBox" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
