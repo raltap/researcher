@@ -36,7 +36,7 @@ We evaluate citation rigor, methodological transparency, and argumentative cohes
 
   let state = {
     view: 'search',
-    query: 'Artificial intelligence in education',
+    query: '',
     resolvedQuery: null,
     allPapers: [],
     filteredPapers: [],
@@ -320,6 +320,9 @@ We evaluate citation rigor, methodological transparency, and argumentative cohes
   }
 
   function applyFilters() {
+    if (!state.query && state.allPapers.length === 0) {
+      return;
+    }
     const sortBy = document.getElementById('sortSelect')?.value || 'citations_desc';
     const minRel = Number(document.getElementById('relevanceSelect')?.value || 40);
     const oaOnly = Boolean(document.getElementById('oaOnlyCheck')?.checked);
@@ -1398,8 +1401,15 @@ YÖNERGE: Kullanıcının isteğine doğrudan ve önceki sohbet bağlamını kor
     );
 
     const searchInput = document.getElementById('searchInput');
-    if (searchInput) searchInput.value = state.query;
-    await runSearch(state.query);
+    if (searchInput) searchInput.value = '';
+
+    const metaEl = document.getElementById('searchMetaLine');
+    if (metaEl) metaEl.textContent = 'ARAMA YAPMAYA HAZIR';
+
+    const listEl = document.getElementById('resultsList');
+    if (listEl) {
+      listEl.innerHTML = `<div class="py-16 text-center text-sm" style="color: var(--text-muted);">Araştırmak istediğiniz konuyu, kavramı veya makale başlığını yukarıya yazıp <strong>Araştır</strong>'a tıklayın.</div>`;
+    }
   }
 
   return {

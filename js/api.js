@@ -7,7 +7,8 @@ window.ScholarAPI = (() => {
   const COMMAND_AND_FILLER_WORDS = new Set([
     'özetle', 'özet', 'özetini', 'makaleleri', 'makaleler', 'makale', 'makalelerden',
     'kullan', 'kullanarak', 'kullanıp', 'incele', 'inceler', 'bunları', 'bunu', 'şunları',
-    'bu', 'şu', 'o', 've', 'ile', 'için', 'bir', 'olan', 'üzerine', 'göre', 'olarak',
+    'bu', 'şu', 'o', 've', 'ile', 'için', 'bir', 'olan', 'olmak', 'olma', 'olması', 'etmek',
+    'yapmak', 'yapma', 'üzerine', 'göre', 'olarak', 'gibi', 'kadar', 'neden', 'niçin', 'hangi',
     'daha', 'çok', 'en', 'iyi', 'kötü', 'güçlü', 'zayıf', 'güçlüden', 'zayıfa',
     'atıf', 'atıfları', 'atıflarını', 'apa', 'apa7', 'kaynakça', 'kaynak', 'kaynakları',
     'özelliklerini', 'özellikleri', 'özelliği', 'özellikler', 'hakkında', 'ilgili', 'alakalı',
@@ -15,6 +16,8 @@ window.ScholarAPI = (() => {
     'anlat', 'nedir', 'nasıl', 'nelerdir', 'bilgi', 'ver', 'değerlendir', 'karşılaştır',
     'örnek', 'birkaç', 'tüm', 'bütün', 'çıkar', 'yaz', 'hazırla', 'sentezle',
     'the', 'and', 'for', 'with', 'that', 'this', 'from', 'into', 'about', 'using',
+    'being', 'becoming', 'having', 'doing', 'making', 'in', 'on', 'at', 'to', 'of', 'by',
+    'as', 'is', 'are', 'was', 'were', 'be', 'been', 'an', 'or', 'how', 'what', 'why',
     'summarize', 'summary', 'articles', 'papers', 'paper', 'find', 'search', 'list',
     'analyze', 'review', 'characteristics', 'properties', 'features', 'tell', 'me'
   ]);
@@ -120,6 +123,22 @@ window.ScholarAPI = (() => {
       .replace(/ünün$/i, 'ü');
   }
 
+  // Clean translated English query for high-precision academic database search
+  function cleanAcademicEnglishQuery(enText) {
+    if (!enText) return '';
+    const cleaned = enText
+      .replace(/\bT[üu]rkiye\b/gi, 'Turkey')
+      .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+      .split(/\s+/)
+      .filter((w) => {
+        const l = w.toLowerCase();
+        return l.length > 1 && !COMMAND_AND_FILLER_WORDS.has(l);
+      })
+      .join(' ')
+      .trim();
+    return cleaned || enText.trim();
+  }
+
   // Translate Turkish core subject to English academic query (via local backend or direct Google GTX CORS endpoint)
   async function resolveAcademicQuery(rawInput) {
     const coreSubject = extractCoreSubject(rawInput);
@@ -137,7 +156,7 @@ window.ScholarAPI = (() => {
           return {
             raw: rawInput,
             coreSubject,
-            englishQuery: data.english.trim()
+            englishQuery: cleanAcademicEnglishQuery(data.english.trim())
           };
         }
       }
@@ -162,7 +181,7 @@ window.ScholarAPI = (() => {
             return {
               raw: rawInput,
               coreSubject,
-              englishQuery: english
+              englishQuery: cleanAcademicEnglishQuery(english)
             };
           }
         }
@@ -174,89 +193,108 @@ window.ScholarAPI = (() => {
     return {
       raw: rawInput,
       coreSubject,
-      englishQuery: coreSubject
+      englishQuery: cleanAcademicEnglishQuery(coreSubject)
     };
   }
 
-  function tokenizeCoreTerms(coreSubject, englishQuery) {
-    const combined = `${coreSubject} ${englishQuery}`
+  function extractMeaningfulTerms(text) {
+    return String(text || '')
       .toLocaleLowerCase('tr-TR')
       .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
       .split(/\s+/)
+      .map((w) => normalizeTurkishCoreWord(w))
       .filter((w) => w.length > 2 && !COMMAND_AND_FILLER_WORDS.has(w));
-
-    const unique = new Set();
-    for (const w of combined) {
-      unique.add(w);
-      // Singularize simple English plurals (e.g., "otters" -> "otter", "models" -> "model")
-      if (w.endsWith('s') && w.length > 4) {
-        unique.add(w.slice(0, -1));
-      }
-    }
-    return Array.from(unique);
   }
 
-  // Strict Core-Entity Relevance Gate: papers that do NOT match the core subject get 0 and are discarded!
+  function getTermVariants(term) {
+    const variants = new Set([term]);
+    if (term.endsWith('s') && term.length > 4) variants.add(term.slice(0, -1));
+    if (term.length > 5) variants.add(term.slice(0, -1));
+    if (/^(t[üu]rkiye|turkey)$/.test(term)) {
+      variants.add('turkey');
+      variants.add('türkiye');
+      variants.add('turkiye');
+    }
+    return Array.from(variants);
+  }
+
+  function matchesAnyVariant(haystack, term) {
+    return getTermVariants(term).some((v) => v.length >= 3 && haystack.includes(v));
+  }
+
+  // Strict Multi-Concept Relevance Gate:
+  // For multi-concept queries (e.g. "türkiyede öğrenci" -> ["student", "turkey"]),
+  // papers must match ALL core concepts in body AND actually be about the topic in their title.
   function computeRelevanceScore(paper, coreSubject, englishQuery) {
-    const coreTerms = tokenizeCoreTerms(coreSubject, englishQuery);
-    if (coreTerms.length === 0) return 80;
+    const enTerms = Array.from(new Set(extractMeaningfulTerms(englishQuery)));
+    const trTerms = Array.from(new Set(extractMeaningfulTerms(coreSubject)));
+
+    const primaryConcepts = enTerms.length > 0 ? enTerms : trTerms;
+    if (primaryConcepts.length === 0) return 75;
 
     const titleLower = (paper.title || '').toLocaleLowerCase('tr-TR');
     const abstractLower = (paper.abstract || '').toLocaleLowerCase('tr-TR');
     const conceptsLower = (paper.concepts || []).join(' ').toLocaleLowerCase('tr-TR');
     const fullText = `${titleLower} ${abstractLower} ${conceptsLower}`;
 
-    const enClean = (englishQuery || '').toLowerCase().trim();
-    const enSingular = enClean.endsWith('s') ? enClean.slice(0, -1) : enClean;
-    const trClean = (coreSubject || '').toLocaleLowerCase('tr-TR').trim();
+    const countMatched = (terms, haystack) =>
+      terms.filter((t) => matchesAnyVariant(haystack, t)).length;
 
-    // Check if the primary English or Turkish subject phrase appears anywhere in the paper
-    const hasExactPhraseInTitle =
-      (enClean.length > 2 && titleLower.includes(enClean)) ||
-      (enSingular.length > 2 && titleLower.includes(enSingular)) ||
-      (trClean.length > 2 && titleLower.includes(trClean));
+    const enBodyMatched = countMatched(enTerms, fullText);
+    const trBodyMatched = countMatched(trTerms, fullText);
+    const enTitleMatched = countMatched(enTerms, titleLower);
+    const trTitleMatched = countMatched(trTerms, titleLower);
 
-    const hasExactPhraseInBody =
-      hasExactPhraseInTitle ||
-      (enClean.length > 2 && fullText.includes(enClean)) ||
-      (enSingular.length > 2 && fullText.includes(enSingular)) ||
-      (trClean.length > 2 && fullText.includes(trClean));
+    const enScoreRatio = enTerms.length ? (enTitleMatched * 1.5 + enBodyMatched) / enTerms.length : 0;
+    const trScoreRatio = trTerms.length ? (trTitleMatched * 1.5 + trBodyMatched) / trTerms.length : 0;
+    const useTr = trTerms.length > 0 && trScoreRatio > enScoreRatio;
 
-    let titleHits = 0;
-    let bodyHits = 0;
+    const activeTerms = useTr ? trTerms : enTerms;
+    const conceptCount = activeTerms.length;
+    const bodyMatched = useTr ? trBodyMatched : enBodyMatched;
+    const titleMatched = useTr ? trTitleMatched : enTitleMatched;
 
-    for (const term of coreTerms) {
-      const stem = term.length > 5 ? term.slice(0, -1) : term;
-      if (titleLower.includes(stem)) titleHits++;
-      if (fullText.includes(stem)) bodyHits++;
-    }
-
-    // HARD GATE: If zero core terms match in title or body, return 0 so it is strictly filtered out!
-    if (bodyHits === 0 && !hasExactPhraseInBody) {
+    // HARD MULTI-CONCEPT GATE:
+    // - 1-2 concepts: MUST match ALL concepts in fullText
+    // - 3+ concepts: must match at least 65% of concepts in fullText
+    const minRequired = conceptCount <= 2 ? conceptCount : Math.ceil(conceptCount * 0.65);
+    if (bodyMatched < minRequired) {
       return 0;
     }
 
-    // For multi-word queries (like "sea otter" or "su samuru"), require at least the primary distinctive noun
-    const englishWords = enClean.split(/\s+/).filter((w) => w.length > 2 && !COMMAND_AND_FILLER_WORDS.has(w));
-    if (englishWords.length > 0) {
-      const mainEnglishNoun = englishWords[englishWords.length - 1].replace(/s$/, '');
-      if (
-        mainEnglishNoun.length >= 3 &&
-        !fullText.includes(mainEnglishNoun) &&
-        !fullText.includes(trClean)
-      ) {
+    // TITLE RELEVANCE GATE: at least 1 concept must appear in the title,
+    // and for 2-concept queries where one is a country/location (e.g. "turkey"),
+    // the actual subject concept MUST appear in the title (prevents "Helicopter Parenting in Turkey").
+    if (titleMatched === 0) {
+      return 0;
+    }
+    if (conceptCount === 2 && titleMatched === 1) {
+      const onlyLocationInTitle = activeTerms.every(
+        (t) => !matchesAnyVariant(titleLower, t) || /^(t[üu]rkiye|turkey|turkiye|usa|europe|world|global|istanbul|ankara)$/.test(t)
+      );
+      if (onlyLocationInTitle) {
         return 0;
       }
     }
 
-    const titleRatio = titleHits / coreTerms.length;
-    const bodyRatio = bodyHits / coreTerms.length;
-    let score = Math.round(titleRatio * 55 + bodyRatio * 45);
+    const enClean = (englishQuery || '').toLowerCase().trim();
+    const trClean = (coreSubject || '').toLocaleLowerCase('tr-TR').trim();
+    const hasExactPhraseInTitle =
+      (enClean.length > 3 && titleLower.includes(enClean)) ||
+      (trClean.length > 3 && titleLower.includes(trClean));
+    const hasExactPhraseInBody =
+      hasExactPhraseInTitle ||
+      (enClean.length > 3 && fullText.includes(enClean)) ||
+      (trClean.length > 3 && fullText.includes(trClean));
 
-    if (hasExactPhraseInTitle) score += 28;
-    else if (hasExactPhraseInBody) score += 15;
+    const titleRatio = titleMatched / Math.max(1, conceptCount);
+    const bodyRatio = bodyMatched / Math.max(1, conceptCount);
+    let score = Math.round(titleRatio * 65 + bodyRatio * 35);
 
-    return Math.max(35, Math.min(99, score));
+    if (hasExactPhraseInTitle) score += 20;
+    else if (hasExactPhraseInBody) score += 10;
+
+    return Math.max(0, Math.min(99, score));
   }
 
   function extractStructuredInsights(paper) {
