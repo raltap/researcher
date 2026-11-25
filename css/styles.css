@@ -1,0 +1,240 @@
+/* ==========================================================================
+   ScholarFlow — Awwwards Minimal Editorial Design System (Day & Night Themes)
+   ========================================================================== */
+
+:root,
+[data-theme="light"] {
+  --bg-canvas: #F7F5F0;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #EFECE6;
+  --bg-elevated: rgba(255, 255, 255, 0.92);
+  --text-primary: #141413;
+  --text-secondary: #57544E;
+  --text-muted: #8C8881;
+  --border-hairline: #E4E0D7;
+  --border-strong: #141413;
+  --accent-ink: #141413;
+  --accent-ink-fg: #F7F5F0;
+  --accent-highlight: #B45309;
+  --accent-emerald: #15803D;
+  --shadow-soft: 0 12px 32px -12px rgba(20, 20, 19, 0.07);
+  --shadow-drawer: -16px 0 48px -12px rgba(20, 20, 19, 0.14);
+}
+
+[data-theme="dark"] {
+  --bg-canvas: #0A0A0B;
+  --bg-surface: #121214;
+  --bg-subtle: #1A1A1E;
+  --bg-elevated: rgba(18, 18, 20, 0.92);
+  --text-primary: #F4F3EF;
+  --text-secondary: #A1A09A;
+  --text-muted: #6E6D68;
+  --border-hairline: #232327;
+  --border-strong: #F4F3EF;
+  --accent-ink: #F4F3EF;
+  --accent-ink-fg: #0A0A0B;
+  --accent-highlight: #D97706;
+  --accent-emerald: #22C55E;
+  --shadow-soft: 0 12px 32px -12px rgba(0, 0, 0, 0.45);
+  --shadow-drawer: -16px 0 48px -12px rgba(0, 0, 0, 0.7);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.font-serif-editorial {
+  font-family: 'Instrument Serif', 'Playfair Display', Georgia, serif;
+}
+
+.font-academic-body {
+  font-family: 'Newsreader', 'Merriweather', Georgia, serif;
+}
+
+.font-mono-tabular {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hairline Editorial Borders */
+.hairline-b {
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.hairline-t {
+  border-top: 1px solid var(--border-hairline);
+}
+
+.hairline-border {
+  border: 1px solid var(--border-hairline);
+}
+
+/* Surface Cards */
+.editorial-surface {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+  box-shadow: var(--shadow-soft);
+}
+
+.editorial-header {
+  background-color: var(--bg-elevated);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+/* Swiss Editorial Paper Row */
+.editorial-paper-row {
+  border-bottom: 1px solid var(--border-hairline);
+  transition: background-color 0.16s ease, padding-left 0.18s ease;
+}
+
+.editorial-paper-row:hover {
+  background-color: var(--bg-surface);
+}
+
+.editorial-paper-row.is-selected {
+  background-color: var(--bg-surface);
+  border-left: 3px solid var(--accent-ink);
+  padding-left: 1.25rem;
+}
+
+/* Buttons */
+.btn-ink {
+  background-color: var(--accent-ink);
+  color: var(--accent-ink-fg);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.btn-ink:hover {
+  opacity: 0.88;
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-hairline);
+  transition: all 0.15s ease;
+}
+
+.btn-ghost:hover {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+  background-color: var(--bg-subtle);
+}
+
+.btn-ghost.active {
+  background-color: var(--accent-ink);
+  color: var(--accent-ink-fg);
+  border-color: var(--accent-ink);
+}
+
+/* Navigation Pills */
+.nav-link {
+  color: var(--text-secondary);
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  transition: all 0.16s ease;
+}
+
+.nav-link:hover {
+  color: var(--text-primary);
+}
+
+.nav-link.active {
+  background-color: var(--accent-ink);
+  color: var(--accent-ink-fg);
+}
+
+/* Slide-Over Drawers */
+.editorial-drawer {
+  background-color: var(--bg-surface);
+  border-left: 1px solid var(--border-hairline);
+  box-shadow: var(--shadow-drawer);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.editorial-drawer.closed {
+  transform: translateX(100%);
+  pointer-events: none;
+}
+
+.editorial-drawer.open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* Academic Writing Canvas */
+.writing-sheet {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+  box-shadow: var(--shadow-soft);
+  min-height: 560px;
+  line-height: 1.9;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+  outline: none;
+  resize: vertical;
+}
+
+.apa-hanging {
+  padding-left: 2rem;
+  text-indent: -2rem;
+  line-height: 1.75;
+}
+
+/* Info Popover Tooltip */
+.info-popover-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.info-popover-box {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: 240px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+  box-shadow: var(--shadow-soft);
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  z-index: 40;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.info-popover-trigger:hover .info-popover-box {
+  display: block;
+}
+
+/* Subtle Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-hairline);
+  border-radius: 9999px;
+}
